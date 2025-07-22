@@ -3,8 +3,7 @@ name: Release Syncthing
 on:
   push:
     branches:
-      - release
-      - release-rc*
+      - synology
 
 permissions:
   contents: write
@@ -29,11 +28,7 @@ jobs:
       - name: Determine version to release
         run: |
           echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
-          if [[ "$GITHUB_REF_NAME" == "release" ]] ; then
-            next=$(go run ./script/next-version.go)
-          else
-            next=$(go run ./script/next-version.go --pre)
-          fi
+          next=$(go run ./script/next-version.go)
           echo "NEXT=$next" >> $GITHUB_ENV
           echo "Next version is $next"
 

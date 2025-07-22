@@ -1,11 +1,6 @@
 name: Build Syncthing
 
 on:
-  pull_request:
-  push:
-    branches-ignore:
-      - release
-      - release-rc*
   workflow_call:
   workflow_dispatch:
 
@@ -64,6 +59,7 @@ jobs:
       - name: Create packages
         run: |
           go run build.go --goos linux --goarch arm --no-upgrade tar syncthing
+          for file in *.tar.gz; do mv "$file" "$(echo "$file" | sed 's/-linux-arm-/-synology-ds213-/')"; done
         env:
           CGO_ENABLED: "0"
 
@@ -111,14 +107,9 @@ jobs:
 
       - name: Create GitHub releases and push binaries
         run: |
-          maybePrerelease=""
-          if [[ $VERSION == *-* ]]; then
-            maybePrerelease="--prerelease"
-          fi
           export GH_PROMPT_DISABLED=1
           if ! gh release view --json name "$VERSION" >/dev/null 2>&1 ; then
             gh release create "$VERSION" \
-              $maybePrerelease \
               --title "$VERSION" \
               --notes-from-tag
           fi
