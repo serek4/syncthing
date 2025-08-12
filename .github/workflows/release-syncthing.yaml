@@ -3,8 +3,7 @@ name: Release Syncthing
 on:
   push:
     branches:
-      - release
-      - release-rc*
+      - synology
 
 permissions:
   contents: write
@@ -24,14 +23,12 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "~1.23.0"
+          check-latest: true
 
       - name: Determine version to release
         run: |
-          if [[ "$GITHUB_REF_NAME" == "release" ]] ; then
-            next=$(go run ./script/next-version.go)
-          else
-            next=$(go run ./script/next-version.go --pre)
-          fi
+          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
+          next=$(go run ./script/next-version.go)
           echo "NEXT=$next" >> $GITHUB_ENV
           echo "Next version is $next"
 
@@ -41,6 +38,7 @@ jobs:
 
       - name: Determine release notes
         run: |
+          echo -e "go: $GO_VERSION\n" >> relnotes/v2.md
           go run ./script/relnotes.go --new-ver "$NEXT" --branch "$GITHUB_REF_NAME" --prev-ver "$PREV" > notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.ACTIONS_GITHUB_TOKEN }}

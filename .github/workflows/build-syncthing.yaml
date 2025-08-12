@@ -1,11 +1,6 @@
 name: Build Syncthing
 
 on:
-  pull_request:
-  push:
-    branches-ignore:
-      - release
-      - release-rc*
   workflow_call:
   workflow_dispatch:
 
@@ -71,8 +66,6 @@ jobs:
           kind=stable
           if [[ $version == *-rc.[0-9] || $version == *-rc.[0-9][0-9] ]] ; then
             kind=candidate
-          elif [[ $version == *-* ]] ; then
-            kind=nightly
           fi
           echo "release-kind=$kind" >> "$GITHUB_OUTPUT"
           echo "Release kind: $kind"
@@ -119,6 +112,7 @@ jobs:
       - name: Create packages
         run: |
           go run build.go --goos linux --goarch arm --no-upgrade tar syncthing
+          for file in *.tar.gz; do mv "$file" "$(echo "$file" | sed 's/-linux-arm-/-synology-ds213-/')"; done
         env:
           CGO_ENABLED: "0"
 
@@ -134,7 +128,7 @@ jobs:
 
   publish-release-files:
     name: Publish release files
-    if: github.repository_owner == 'serek4' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/tags/v'))
+    if: github.repository_owner == 'serek4' && github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/v')
     environment: release
     permissions:
       contents: write
@@ -164,14 +158,9 @@ jobs:
 
       - name: Create GitHub releases and push binaries
         run: |
-          maybePrerelease=""
-          if [[ $VERSION == *-* ]]; then
-            maybePrerelease="--prerelease"
-          fi
           export GH_PROMPT_DISABLED=1
           if ! gh release view --json name "$VERSION" >/dev/null 2>&1 ; then
             gh release create "$VERSION" \
-              $maybePrerelease \
               --title "$VERSION" \
               --notes-from-tag
           fi
