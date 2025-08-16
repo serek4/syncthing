@@ -155,7 +155,7 @@ type serveCmd struct {
 	Audit                     bool          `help:"Write events to audit file" env:"STAUDIT"`
 	AuditFile                 string        `name:"auditfile" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)" placeholder:"PATH" env:"STAUDITFILE"`
 	DBMaintenanceInterval     time.Duration `help:"Database maintenance interval" default:"8h" env:"STDBMAINTENANCEINTERVAL"`
-	DBDeleteRetentionInterval time.Duration `help:"Database deleted item retention interval" default:"4320h" env:"STDBDELETERETENTIONINTERVAL"`
+	DBDeleteRetentionInterval time.Duration `help:"Database deleted item retention interval" default:"10920h" env:"STDBDELETERETENTIONINTERVAL"`
 	GUIAddress                string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
 	GUIAPIKey                 string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
 	LogFile                   string        `name:"log-file" aliases:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
@@ -868,12 +868,16 @@ func (u upgradeCmd) Run() error {
 		lf := flock.New(locations.Get(locations.LockFile))
 		var locked bool
 		locked, err = lf.TryLock()
-		if err != nil {
+		// ErrNotExist is a valid error if this is a new/blank installation
+		// without a config dir, in which case we can proceed with a normal
+		// non-API upgrade.
+		switch {
+		case err != nil && !os.IsNotExist(err):
 			slog.Error("Failed to lock for upgrade", slogutil.Error(err))
 			os.Exit(1)
-		} else if locked {
+		case locked:
 			err = upgradeViaRest()
-		} else {
+		default:
 			err = upgrade.To(release)
 		}
 	}

@@ -1080,7 +1080,7 @@ func TestIssue4901(t *testing.T) {
 
 	fd, err := pats.fs.Create(".stignore")
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 	if _, err := fd.Write([]byte(stignore)); err != nil {
 		t.Fatal(err)
@@ -1102,7 +1102,7 @@ func TestIssue4901(t *testing.T) {
 
 	fd, err = pats.fs.Create("unicorn-lazor-death")
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 	if _, err := fd.Write([]byte(" ")); err != nil {
 		t.Fatal(err)
@@ -1494,7 +1494,7 @@ func TestEscapePipe(t *testing.T) {
 
 // overrideBackslashTests has the same wants as the pipeTests tests.
 // The only difference in the tests is the pipe symbol in the pattern has been
-// changed to a backslash. This could be done programatically, if desired.
+// changed to a backslash. This could be done programmatically, if desired.
 var overrideBackslashTests = []escapeTest{
 	{`a\*`, `a*`, true},
 	{`a\*b`, `a*b`, true},

@@ -10,7 +10,7 @@ env:
   # expression.
   GO_VERSION: "~1.23.0"
 
-  # Optimize compatibility on the slow archictures.
+  # Optimize compatibility on the slow architectures.
   GOMIPS: softfloat
   GOARM: "5"
 
@@ -21,7 +21,8 @@ env:
   BUILD_USER: builder
   BUILD_HOST: github.com
 
-  TAGS: "netgo osusergo sqlite_omit_load_extension sqlite_dbstat"
+  TAGS: "sqlite_omit_load_extension sqlite_dbstat"
+  TAGS_LINUX: "sqlite_omit_load_extension sqlite_dbstat netgo osusergo"
 
 # A note on actions and third party code... The actions under actions/ (like
 # `uses: actions/checkout`) are maintained by GitHub, and we need to trust
