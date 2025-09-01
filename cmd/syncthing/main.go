@@ -122,9 +122,10 @@ type CLI struct {
 	// subcommands. Their settings take effect on the `locations` package by
 	// way of the command line parser, so anything using `locations.Get` etc
 	// will be doing the right thing.
-	ConfDir string `name:"config" short:"C" placeholder:"PATH" env:"STCONFDIR" help:"Set configuration directory (config and keys)"`
-	DataDir string `name:"data" short:"D" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
-	HomeDir string `name:"home" short:"H" placeholder:"PATH" env:"STHOMEDIR" help:"Set configuration and data directory"`
+	ConfDir     string `name:"config" short:"C" placeholder:"PATH" env:"STCONFDIR" help:"Set configuration directory (config and keys)"`
+	DataDir     string `name:"data" short:"D" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
+	HomeDir     string `name:"home" short:"H" placeholder:"PATH" env:"STHOMEDIR" help:"Set configuration and data directory"`
+	VersionFlag bool   `name:"version" help:"Show current version, then exit"`
 
 	Serve serveCmd `cmd:"" help:"Run Syncthing (default)" default:"withargs"`
 	CLI   cli.CLI  `cmd:"" help:"Command line interface for Syncthing"`
@@ -224,6 +225,12 @@ func main() {
 	kongplete.Complete(parser)
 	ctx, err := parser.Parse(os.Args[1:])
 	parser.FatalIfErrorf(err)
+
+	if entrypoint.VersionFlag {
+		_ = versionCmd{}.Run()
+		return
+	}
+
 	err = ctx.Run()
 	parser.FatalIfErrorf(err)
 }
@@ -472,7 +479,20 @@ func (c *serveCmd) syncthingMain() {
 		})
 	}
 
-	if err := syncthing.TryMigrateDatabase(c.DBDeleteRetentionInterval); err != nil {
+	migratingAPICtx, migratingAPICancel := context.WithCancel(ctx)
+	if cfgWrapper.GUI().Enabled {
+		// Start a temporary API server during the migration. It will wait
+		// startDelay until actually starting, so that if we quickly pass
+		// through the migration steps (e.g., there was nothing to migrate)
+		// and cancel the context, it will never even start.
+		api := migratingAPI{
+			addr:       cfgWrapper.GUI().Address(),
+			startDelay: 5 * time.Second,
+		}
+		go api.Serve(migratingAPICtx)
+	}
+
+	if err := syncthing.TryMigrateDatabase(ctx, c.DBDeleteRetentionInterval); err != nil {
 		slog.Error("Failed to migrate old-style database", slogutil.Error(err))
 		os.Exit(1)
 	}
@@ -482,6 +502,8 @@ func (c *serveCmd) syncthingMain() {
 		slog.Error("Error opening database", slogutil.Error(err))
 		os.Exit(1)
 	}
+
+	migratingAPICancel() // we're done with the temporary API server
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
 	// upgrade immediately. The auto-upgrade routine can only be started
@@ -1003,4 +1025,33 @@ func setConfigDataLocationsFromFlags(homeDir, confDir, dataDir string) error {
 		return locations.SetBaseDir(locations.DataBaseDir, dataDir)
 	}
 	return nil
+}
+
+type migratingAPI struct {
+	addr       string
+	startDelay time.Duration
+}
+
+func (m migratingAPI) Serve(ctx context.Context) error {
+	srv := &http.Server{
+		Addr: m.addr,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write([]byte("*** Database migration in progress ***\n\n"))
+			for _, line := range slogutil.GlobalRecorder.Since(time.Time{}) {
+				line.WriteTo(w)
+			}
+		}),
+	}
+	go func() {
+		select {
+		case <-time.After(m.startDelay):
+			slog.InfoContext(ctx, "Starting temporary GUI/API during migration", slogutil.Address(m.addr))
+			err := srv.ListenAndServe()
+			slog.InfoContext(ctx, "Temporary GUI/API closed", slogutil.Address(m.addr), slogutil.Error(err))
+		case <-ctx.Done():
+		}
+	}()
+	<-ctx.Done()
+	return srv.Close()
 }
