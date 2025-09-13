@@ -164,6 +164,9 @@ type serveCmd struct {
 	LogLevel                  slog.Level    `help:"Log level for all packages (DEBUG,INFO,WARN,ERROR)" env:"STLOGLEVEL" default:"INFO"`
 	LogMaxFiles               int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STLOGMAXOLDFILES"`
 	LogMaxSize                int           `help:"Maximum size of any file (zero to disable log rotation)" default:"${logMaxSize}" placeholder:"BYTES" env:"STLOGMAXSIZE"`
+	LogFormatTimestamp        string        `name:"log-format-timestamp" help:"Format for timestamp, set to empty to disable timestamps" env:"STLOGFORMATTIMESTAMP" default:"${timestampFormat}"`
+	LogFormatLevelString      bool          `name:"log-format-level-string" help:"Whether to include level string in log line" env:"STLOGFORMATLEVELSTRING" default:"${levelString}" negatable:""`
+	LogFormatLevelSyslog      bool          `name:"log-format-level-syslog" help:"Whether to include level as syslog prefix in log line" env:"STLOGFORMATLEVELSYSLOG" default:"${levelSyslog}" negatable:""`
 	NoBrowser                 bool          `help:"Do not start browser" env:"STNOBROWSER"`
 	NoPortProbing             bool          `help:"Don't try to find free ports for GUI and listen addresses on first startup" env:"STNOPORTPROBING"`
 	NoRestart                 bool          `help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash" env:"STNORESTART"`
@@ -186,10 +189,13 @@ type serveCmd struct {
 }
 
 func defaultVars() kong.Vars {
-	vars := kong.Vars{}
-
-	vars["logMaxSize"] = strconv.Itoa(10 << 20) // 10 MiB
-	vars["logMaxFiles"] = "3"                   // plus the current one
+	vars := kong.Vars{
+		"logMaxSize":      strconv.Itoa(10 << 20), // 10 MiB
+		"logMaxFiles":     "3",                    // plus the current one
+		"levelString":     strconv.FormatBool(slogutil.DefaultLineFormat.LevelString),
+		"levelSyslog":     strconv.FormatBool(slogutil.DefaultLineFormat.LevelSyslog),
+		"timestampFormat": slogutil.DefaultLineFormat.TimestampFormat,
+	}
 
 	// On non-Windows, we explicitly default to "-" which means stdout. On
 	// Windows, the "default" options.logFile will later be replaced with the
@@ -262,8 +268,14 @@ func (c *serveCmd) Run() error {
 		osutil.HideConsole()
 	}
 
-	// The default log level for all packages
+	// Customize the logging early
+	slogutil.SetLineFormat(slogutil.LineFormat{
+		TimestampFormat: c.LogFormatTimestamp,
+		LevelString:     c.LogFormatLevelString,
+		LevelSyslog:     c.LogFormatLevelSyslog,
+	})
 	slogutil.SetDefaultLevel(c.LogLevel)
+	slogutil.SetLevelOverrides(os.Getenv("STTRACE"))
 
 	// Treat an explicitly empty log file name as no log file
 	if c.LogFile == "" {
@@ -769,40 +781,39 @@ func initialAutoUpgradeCheck(misc *db.Typed) (upgrade.Release, error) {
 // suitable time after they have gone out of fashion.
 func cleanConfigDirectory() {
 	patterns := map[string]time.Duration{
-		"panic-*.log":        7 * 24 * time.Hour,  // keep panic logs for a week
-		"audit-*.log":        7 * 24 * time.Hour,  // keep audit logs for a week
-		"index":              14 * 24 * time.Hour, // keep old index format for two weeks
-		"index-v0.11.0.db":   14 * 24 * time.Hour, // keep old index format for two weeks
-		"index-v0.13.0.db":   14 * 24 * time.Hour, // keep old index format for two weeks
-		"index*.converted":   14 * 24 * time.Hour, // keep old converted indexes for two weeks
-		"config.xml.v*":      30 * 24 * time.Hour, // old config versions for a month
-		"*.idx.gz":           30 * 24 * time.Hour, // these should for sure no longer exist
-		"backup-of-v0.8":     30 * 24 * time.Hour, // these neither
-		"tmp-index-sorter.*": time.Minute,         // these should never exist on startup
-		"support-bundle-*":   30 * 24 * time.Hour, // keep old support bundle zip or folder for a month
-		"csrftokens.txt":     0,                   // deprecated, remove immediately
+		"panic-*.log":               7 * 24 * time.Hour,  // keep panic logs for a week
+		"audit-*.log":               7 * 24 * time.Hour,  // keep audit logs for a week
+		"index-v0.14.0.db-migrated": 14 * 24 * time.Hour, // keep old index format for two weeks
+		"config.xml.v*":             30 * 24 * time.Hour, // old config versions for a month
+		"support-bundle-*":          30 * 24 * time.Hour, // keep old support bundle zip or folder for a month
 	}
 
-	for pat, dur := range patterns {
-		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, locations.GetBaseDir(locations.ConfigBaseDir))
-		files, err := fs.Glob(pat)
-		if err != nil {
-			slog.Warn("Failed to clean config directory", slogutil.Error(err))
-			continue
-		}
-
-		for _, file := range files {
-			info, err := fs.Lstat(file)
+	locations := slices.Compact([]string{
+		locations.GetBaseDir(locations.ConfigBaseDir),
+		locations.GetBaseDir(locations.DataBaseDir),
+	})
+	for _, loc := range locations {
+		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, loc)
+		for pat, dur := range patterns {
+			entries, err := fs.Glob(pat)
 			if err != nil {
 				slog.Warn("Failed to clean config directory", slogutil.Error(err))
 				continue
 			}
 
-			if time.Since(info.ModTime()) > dur {
-				if err = fs.RemoveAll(file); err != nil {
+			for _, entry := range entries {
+				info, err := fs.Lstat(entry)
+				if err != nil {
 					slog.Warn("Failed to clean config directory", slogutil.Error(err))
-				} else {
-					slog.Warn("Cleaned away old file", slogutil.FilePath(filepath.Base(file)))
+					continue
+				}
+
+				if time.Since(info.ModTime()) > dur {
+					if err = fs.RemoveAll(entry); err != nil {
+						slog.Warn("Failed to clean config directory", slogutil.Error(err))
+					} else {
+						slog.Warn("Cleaned away old file", slogutil.FilePath(filepath.Base(entry)))
+					}
 				}
 			}
 		}
@@ -1039,7 +1050,7 @@ func (m migratingAPI) Serve(ctx context.Context) error {
 			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte("*** Database migration in progress ***\n\n"))
 			for _, line := range slogutil.GlobalRecorder.Since(time.Time{}) {
-				line.WriteTo(w)
+				_, _ = line.WriteTo(w, slogutil.DefaultLineFormat)
 			}
 		}),
 	}
