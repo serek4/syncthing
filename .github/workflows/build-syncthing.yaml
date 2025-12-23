@@ -108,7 +108,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-cross-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-cross-${{ hashFiles('go.sum') }}
 
       - name: Create packages
         run: |
@@ -147,7 +147,7 @@ jobs:
           ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - name: Download packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: packages-linux_arm
           path: packages
