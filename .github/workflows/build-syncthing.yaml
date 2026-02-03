@@ -133,6 +133,9 @@ jobs:
     environment: release
     permissions:
       contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     needs:
       - package-cross
       - facts
@@ -152,10 +155,10 @@ jobs:
           name: packages-linux_arm
           path: packages
 
-      - uses: actions/setup-go@v6
+      - name: Create GitHub build provenance attestations
+        uses: actions/attest-build-provenance@v3
         with:
-          go-version: ${{ needs.facts.outputs.go-version }}
-          cache: false
+          subject-path: packages/*
 
       - name: Create GitHub releases and push binaries
         run: |
