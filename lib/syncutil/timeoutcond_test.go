@@ -48,13 +48,16 @@ func TestTimeoutCond(t *testing.T) {
 	var results [routines][2]int
 	var wg sync.WaitGroup
 	for i := 0; i < routines; i++ {
-		wg.Go(func() {
+		i := i
+		wg.Add(1)
+		go func() {
 			d := time.Duration(i) * timeMult * time.Millisecond
 			t.Logf("Routine %d waits for %v\n", i, d)
 			succ, fail := runLocks(t, iterations, c, d)
 			results[i][0] = succ
 			results[i][1] = fail
-		})
+			wg.Done()
+		}()
 	}
 
 	wg.Wait()

@@ -108,7 +108,8 @@ func refreshStats() {
 
 	results := make(chan statsFetchResult, len(relays))
 	for _, rel := range relays {
-		wg.Go(func() {
+		wg.Add(1)
+		go func(rel *relay) {
 			t0 := time.Now()
 			stats := fetchStats(rel)
 			duration := time.Since(t0).Seconds()
@@ -122,7 +123,8 @@ func refreshStats() {
 				relay: rel,
 				stats: fetchStats(rel),
 			}
-		})
+			wg.Done()
+		}(rel)
 	}
 
 	wg.Wait()

@@ -378,8 +378,11 @@ func TestUnsubscribeContention(t *testing.T) {
 
 	stopListeners := make(chan struct{})
 	var listenerWg sync.WaitGroup
+	listenerWg.Add(listeners)
 	for i := 0; i < listeners; i++ {
-		listenerWg.Go(func() {
+		go func() {
+			defer listenerWg.Done()
+
 			s := l.Subscribe(AllEvents)
 			defer s.Unsubscribe()
 
@@ -391,7 +394,7 @@ func TestUnsubscribeContention(t *testing.T) {
 					return
 				}
 			}
-		})
+		}()
 	}
 
 	// Start senders. These send pointless events until the stop channel is
@@ -400,8 +403,11 @@ func TestUnsubscribeContention(t *testing.T) {
 	stopSenders := make(chan struct{})
 	defer close(stopSenders)
 	var senderWg sync.WaitGroup
+	senderWg.Add(senders)
 	for i := 0; i < senders; i++ {
-		senderWg.Go(func() {
+		go func() {
+			defer senderWg.Done()
+
 			t := time.NewTicker(time.Millisecond)
 
 			for {
@@ -413,7 +419,7 @@ func TestUnsubscribeContention(t *testing.T) {
 					return
 				}
 			}
-		})
+		}()
 	}
 
 	// Give everything time to start up.

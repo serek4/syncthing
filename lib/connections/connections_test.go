@@ -337,20 +337,23 @@ func BenchmarkConnections(b *testing.B) {
 						b.ResetTimer()
 						for i := 0; i < b.N; i++ {
 							var wg sync.WaitGroup
+							wg.Add(2)
 							errC := make(chan error, 2)
-							wg.Go(func() {
+							go func() {
 								if _, err := client.Write(data); err != nil {
 									errC <- err
 									return
 								}
-							})
-							wg.Go(func() {
+								wg.Done()
+							}()
+							go func() {
 								if _, err := io.ReadFull(server, data); err != nil {
 									errC <- err
 									return
 								}
 								total += sz
-							})
+								wg.Done()
+							}()
 							wg.Wait()
 							close(errC)
 							err := <-errC

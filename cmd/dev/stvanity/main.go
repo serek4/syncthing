@@ -26,6 +26,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -52,9 +53,11 @@ func main() {
 	// Run one certificate generator per CPU core.
 	var wg sync.WaitGroup
 	for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
-		wg.Go(func() {
+		wg.Add(1)
+		go func() {
 			generatePrefixed(prefix, &count, found, stop)
-		})
+			wg.Done()
+		}()
 	}
 
 	// Save the result, when one has been found.

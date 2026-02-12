@@ -256,28 +256,36 @@ func (f *sendReceiveFolder) pullerIteration(ctx context.Context, scanChan chan<-
 
 	f.sl.DebugContext(ctx, "Starting puller iteration", "copiers", f.Copiers, "pullerPendingKiB", f.PullerMaxPendingKiB)
 
+	updateWg.Add(1)
 	var changed int // only read after updateWg closes
-	updateWg.Go(func() {
+	go func() {
 		// dbUpdaterRoutine finishes when dbUpdateChan is closed
 		changed = f.dbUpdaterRoutine(dbUpdateChan)
-	})
+		updateWg.Done()
+	}()
 
 	for range f.Copiers {
-		copyWg.Go(func() {
+		copyWg.Add(1)
+		go func() {
 			// copierRoutine finishes when copyChan is closed
 			f.copierRoutine(ctx, copyChan, pullChan, finisherChan)
-		})
+			copyWg.Done()
+		}()
 	}
 
-	pullWg.Go(func() {
+	pullWg.Add(1)
+	go func() {
 		// pullerRoutine finishes when pullChan is closed
 		f.pullerRoutine(ctx, pullChan, finisherChan)
-	})
+		pullWg.Done()
+	}()
 
+	doneWg.Add(1)
 	// finisherRoutine finishes when finisherChan is closed
-	doneWg.Go(func() {
+	go func() {
 		f.finisherRoutine(ctx, finisherChan, dbUpdateChan, scanChan)
-	})
+		doneWg.Done()
+	}()
 
 	fileDeletions, dirDeletions, err := f.processNeeded(ctx, dbUpdateChan, copyChan, scanChan)
 
@@ -1526,10 +1534,14 @@ func (f *sendReceiveFolder) pullerRoutine(ctx context.Context, in <-chan pullBlo
 			continue
 		}
 
-		wg.Go(func() {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
 			defer requestLimiter.Give(bytes)
+
 			f.pullBlock(ctx, state, out)
-		})
+		}()
 	}
 	wg.Wait()
 }

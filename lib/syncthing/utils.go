@@ -198,8 +198,10 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration) erro
 		fis := make(chan protocol.FileInfo, 50)
 		var writeErr error
 		var wg sync.WaitGroup
+		wg.Add(1)
 		writerDone := make(chan struct{})
-		wg.Go(func() { //nolint:contextcheck
+		go func() {
+			defer wg.Done()
 			defer close(writerDone)
 			var batch []protocol.FileInfo
 			files, blocks := 0, 0
@@ -236,7 +238,7 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration) erro
 			slog.Info("Migrated folder", "folder", folder, "files", files, "blocks", blocks, "duration", d.Truncate(time.Second), "filesrate", float64(files)/d.Seconds())
 			totFiles += files
 			totBlocks += blocks
-		})
+		}()
 
 		// Iterate the existing files
 		fs, err := olddb.NewFileSet(folder, ll)

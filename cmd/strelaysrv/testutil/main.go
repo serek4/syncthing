@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"time"
 
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
