@@ -58,6 +58,7 @@ const (
 	ListenAddressesChanged
 	LoginAttempt
 	Failure
+	UpgradeRestartScheduled
 
 	AllEvents = (1 << iota) - 1
 )
@@ -135,6 +136,8 @@ func (t EventType) String() string {
 		return "FolderWatchStateChanged"
 	case Failure:
 		return "Failure"
+	case UpgradeRestartScheduled:
+		return "UpgradeRestartScheduled"
 	default:
 		return "Unknown"
 	}
@@ -222,6 +225,8 @@ func UnmarshalEventType(s string) EventType {
 		return FolderWatchStateChanged
 	case "Failure":
 		return Failure
+	case "UpgradeRestartScheduled":
+		return UpgradeRestartScheduled
 	default:
 		return 0
 	}

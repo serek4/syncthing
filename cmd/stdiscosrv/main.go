@@ -22,10 +22,8 @@ import (
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/internal/blob"
-	"github.com/syncthing/syncthing/internal/blob/azureblob"
 	"github.com/syncthing/syncthing/internal/blob/s3"
 	"github.com/syncthing/syncthing/internal/slogutil"
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -76,10 +74,6 @@ type CLI struct {
 	DBS3Bucket      string `name:"db-s3-bucket" group:"Database (S3 backup)" hidden:"true" help:"S3 bucket for database" env:"DISCOVERY_DB_S3_BUCKET"`
 	DBS3AccessKeyID string `name:"db-s3-access-key-id" group:"Database (S3 backup)" hidden:"true" help:"S3 access key ID for database" env:"DISCOVERY_DB_S3_ACCESS_KEY_ID"`
 	DBS3SecretKey   string `name:"db-s3-secret-key" group:"Database (S3 backup)" hidden:"true" help:"S3 secret key for database" env:"DISCOVERY_DB_S3_SECRET_KEY"`
-
-	DBAzureBlobAccount   string `name:"db-azure-blob-account" env:"DISCOVERY_DB_AZUREBLOB_ACCOUNT"`
-	DBAzureBlobKey       string `name:"db-azure-blob-key" env:"DISCOVERY_DB_AZUREBLOB_KEY"`
-	DBAzureBlobContainer string `name:"db-azure-blob-container" env:"DISCOVERY_DB_AZUREBLOB_CONTAINER"`
 
 	AMQPAddress string `group:"AMQP replication" hidden:"true" help:"Address to AMQP broker" env:"DISCOVERY_AMQP_ADDRESS"`
 
@@ -134,8 +128,6 @@ func main() {
 	var err error
 	if cli.DBS3Endpoint != "" {
 		blobs, err = s3.NewSession(cli.DBS3Endpoint, cli.DBS3Region, cli.DBS3Bucket, cli.DBS3AccessKeyID, cli.DBS3SecretKey)
-	} else if cli.DBAzureBlobAccount != "" {
-		blobs, err = azureblob.NewBlobStore(cli.DBAzureBlobAccount, cli.DBAzureBlobKey, cli.DBAzureBlobContainer)
 	}
 	if err != nil {
 		slog.Error("Failed to create blob store", "error", err)
