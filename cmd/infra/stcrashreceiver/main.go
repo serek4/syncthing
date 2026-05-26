@@ -102,6 +102,8 @@ func main() {
 	}
 
 	log.SetOutput(os.Stdout)
+	log.Println(build.LongVersionFor("stcrashreceiver"))
+
 	if err := http.ListenAndServe(params.Listen, mux); err != nil {
 		log.Fatalln("HTTP serve:", err)
 	}

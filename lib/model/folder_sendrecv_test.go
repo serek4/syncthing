@@ -649,9 +649,6 @@ func TestDeleteIgnorePerms(t *testing.T) {
 	fi, err := scanner.CreateFileInfo(stat, name, ffs, false, false, config.XattrFilter{})
 	must(t, err)
 	ffs.Chmod(name, 0o600)
-	if info, err := ffs.Stat(name); err == nil {
-		fi.InodeChangeNs = info.InodeChangeTime().UnixNano()
-	}
 	scanChan := make(chan string, 1)
 	err = f.checkToBeDeleted(fi, fi, true, scanChan)
 	must(t, err)
@@ -919,6 +916,88 @@ func TestPullCtxCancel(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			t.Fatalf("timed out before receiving state %v on finisherChan", i)
 		}
+	}
+}
+
+// TestPullEmptyBlock exercises pullBlock for blocks of all zeroes.
+// pullBlock distinguishes three cases:
+//
+//   - Sparse files enabled, reused == 0: nothing to write, the offset
+//     reads as zero anyway because the temp file is sparse-allocated.
+//   - reused != 0: the temp file is being reused and may already hold
+//     non-zero data at this offset, so zeroes must be written explicitly.
+//   - DisableSparseFiles: cannot rely on a sparse hole reading as zero,
+//     so zeroes must be written explicitly.
+func TestPullEmptyBlock(t *testing.T) {
+	const blockSize = protocol.MinBlockSize
+	emptyBlock := protocol.BlockInfo{
+		Offset: 0,
+		Size:   blockSize,
+		Hash:   blocks[0].Hash, // sha256 of a 128 KiB all-zeroes block
+	}
+	if !emptyBlock.IsEmpty() {
+		t.Fatal("test setup: block not recognised as empty")
+	}
+
+	cases := []struct {
+		name            string
+		reused          []int
+		disableSparse   bool
+		preFillTempFile bool
+	}{
+		{name: "sparse-clean"},
+		{name: "reused-temp-file", reused: []int{1}, preFillTempFile: true},
+		{name: "disable-sparse-files", disableSparse: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, f := setupSendReceiveFolder(t)
+			f.folder.FolderConfiguration.DisableSparseFiles = tc.disableSparse
+
+			file := protocol.FileInfo{
+				Name:        "file",
+				Size:        int64(blockSize),
+				Permissions: 0o644,
+				Blocks:      []protocol.BlockInfo{emptyBlock},
+			}
+			tempName := fs.TempName(file.Name)
+
+			// Pre-fill the temp file with non-zero data so that a missing
+			// overwrite would be detectable.
+			if tc.preFillTempFile {
+				writeFile(t, f.Filesystem(), tempName, bytes.Repeat([]byte{0xff}, blockSize))
+			}
+
+			state := pullBlockState{
+				sharedPullerState: newSharedPullerState(file, f.Filesystem(), f.folderID, tempName, file.Blocks, tc.reused, false, false, protocol.FileInfo{}, !tc.disableSparse, false),
+				block:             emptyBlock,
+			}
+
+			out := make(chan *sharedPullerState, 1)
+			f.pullBlock(t.Context(), state, out)
+
+			s := <-out
+			if err := s.failed(); err != nil {
+				t.Fatalf("pullBlock failed: %v", err)
+			}
+			cleanupSharedPullerState(s)
+
+			fd, err := f.Filesystem().Open(tempName)
+			must(t, err)
+			defer fd.Close()
+			data, err := io.ReadAll(fd)
+			must(t, err)
+
+			if len(data) != blockSize {
+				t.Fatalf("temp file too short: got %d bytes, want at least %d", len(data), emptyBlock.Offset+int64(blockSize))
+			}
+			for i, b := range data {
+				if b != 0 {
+					t.Fatalf("byte %d: got %#x, want 0", i, b)
+				}
+			}
+		})
 	}
 }
 

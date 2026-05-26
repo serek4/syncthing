@@ -4,7 +4,7 @@ go 1.23.0
 
 require (
 	github.com/AudriusButkevicius/recli v0.0.7
-	github.com/alecthomas/kong v1.12.1
+	github.com/alecthomas/kong v1.15.0
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/calmh/incontainer v1.0.0
 	github.com/calmh/xdr v1.2.0
@@ -12,7 +12,7 @@ require (
 	github.com/coreos/go-semver v0.3.1
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/getsentry/raven-go v0.2.0
-	github.com/go-ldap/ldap/v3 v3.4.11
+	github.com/go-ldap/ldap/v3 v3.4.13
 	github.com/gobwas/glob v0.2.3
 	github.com/gofrs/flock v0.12.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
@@ -22,18 +22,17 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/maruel/panicparse/v2 v2.5.0
-	github.com/mattn/go-sqlite3 v1.14.34
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.3
+	github.com/mattn/go-sqlite3 v1.14.44
 	github.com/maxmind/geoipupdate/v6 v6.1.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.13.0
-	github.com/pierrec/lz4/v4 v4.1.22
-	github.com/prometheus/client_golang v1.23.0
+	github.com/pierrec/lz4/v4 v4.1.26
+	github.com/prometheus/client_golang v1.23.2
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
-	github.com/quic-go/quic-go v0.54.1
-	github.com/rabbitmq/amqp091-go v1.10.0
+	github.com/quic-go/quic-go v0.59.0
+	github.com/rabbitmq/amqp091-go v1.11.0
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9
-	github.com/shirou/gopsutil/v4 v4.25.9 // https://github.com/shirou/gopsutil/issues/1898
+	github.com/shirou/gopsutil/v4 v4.26.4
 	github.com/syncthing/notify v0.0.0-20250528144937-c7027d4f7465
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d
 	github.com/thejerf/suture/v4 v4.0.6
@@ -41,21 +40,19 @@ require (
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	github.com/willabides/kongplete v0.4.0
 	github.com/wlynxg/anet v0.0.5
-	go.uber.org/automaxprocs v1.6.0
-	golang.org/x/crypto v0.41.0
-	golang.org/x/exp v0.0.0-20250811191247-51f88131bc50
-	golang.org/x/net v0.43.0
-	golang.org/x/sys v0.35.0
-	golang.org/x/text v0.28.0
-	golang.org/x/time v0.12.0
-	golang.org/x/tools v0.36.0
+	golang.org/x/crypto v0.51.0
+	golang.org/x/exp v0.0.0-20260508232706-74f9aab9d74a
+	golang.org/x/net v0.54.0
+	golang.org/x/sys v0.44.0
+	golang.org/x/text v0.37.0
+	golang.org/x/time v0.15.0
 	google.golang.org/protobuf v1.36.11
-	modernc.org/sqlite v1.39.0
+	modernc.org/sqlite v1.50.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
-	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
+	github.com/Azure/go-ntlmssp v0.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
@@ -93,10 +90,12 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.uber.org/mock v0.5.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/mod v0.27.0 // indirect
-	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/mod v0.36.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/telemetry v0.0.0-20260508192327-42602be52be6 // indirect
+	golang.org/x/tools v0.45.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	modernc.org/libc v1.66.3 // indirect
+	modernc.org/libc v1.72.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
@@ -104,5 +103,14 @@ require (
 // https://github.com/gobwas/glob/pull/55
 replace github.com/gobwas/glob v0.2.3 => github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b
 
+// https://github.com/jackpal/gateway/pull/49
+replace github.com/jackpal/gateway v1.1.1 => github.com/marbens-arch/gateway v1.1.2-0.20260308173556-c567cc04e7d4
+
 // https://github.com/mattn/go-sqlite3/pull/1338
-replace github.com/mattn/go-sqlite3 v1.14.31 => github.com/calmh/go-sqlite3 v1.14.32-0.20250812195006-80712c77b76a
+replace github.com/mattn/go-sqlite3 v1.14.44 => github.com/calmh/go-sqlite3 v1.14.35-0.20260509063420-822b4765116d
+
+tool (
+	github.com/calmh/xdr/cmd/genxdr
+	github.com/maxbrunsfeld/counterfeiter/v6
+	golang.org/x/tools/cmd/goimports
+)

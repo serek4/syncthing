@@ -11,6 +11,7 @@ permissions:
 jobs:
   create-release-tag:
     name: Create release tag
+    if: github.repository_owner == 'serek4'
     runs-on: ubuntu-latest
     environment: release
     steps:
@@ -51,7 +52,7 @@ jobs:
           git push origin "$NEXT"
 
       - name: Trigger the build
-        uses: benc-uk/workflow-dispatch@v1
+        uses: benc-uk/workflow-dispatch@7a027648b88c2413826b6ddd6c76114894dc5ec4 # v1
         with:
           workflow: build-syncthing.yaml
           ref: refs/tags/${{ env.NEXT }}

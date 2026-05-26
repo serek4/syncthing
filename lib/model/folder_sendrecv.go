@@ -1174,6 +1174,7 @@ func (f *sendReceiveFolder) handleFile(ctx context.Context, file protocol.FileIn
 		blocks:            blocks,
 		have:              len(have),
 	}
+
 	copyChan <- cs
 	return nil
 }
@@ -1330,7 +1331,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 func (f *sendReceiveFolder) copierRoutine(ctx context.Context, in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
 	otherFolderFilesystems := make(map[string]fs.Filesystem)
 	for folder, cfg := range f.model.cfg.Folders() {
-		if folder == f.ID {
+		if folder == f.ID || !cfg.BlockIndexing {
 			continue
 		}
 		otherFolderFilesystems[folder] = cfg.Filesystem()
@@ -1398,13 +1399,26 @@ func (f *sendReceiveFolder) copyBlock(ctx context.Context, block protocol.BlockI
 	buf := protocol.BufferPool.Get(block.Size)
 	defer protocol.BufferPool.Put(buf)
 
-	// Hope that it's usually in the same folder, so start with that
-	// one. Also possibly more efficient copy (same filesystem).
-	if f.copyBlockFromFolder(ctx, f.ID, block, state, f.mtimefs, buf) {
-		return true
+	// Check for the block in the current version of the file
+	if idx, ok := state.curFileBlocks[string(block.Hash)]; ok {
+		if f.copyBlockFromFile(ctx, state.curFile.Name, state.curFile.Blocks[idx].Offset, state, f.mtimefs, block, buf) {
+			state.copiedFromOrigin(block.Size)
+			return true
+		}
+		if state.failed() != nil {
+			return false
+		}
 	}
-	if state.failed() != nil {
-		return false
+
+	if f.folder.BlockIndexing {
+		// Hope that it's usually in the same folder, so start with that
+		// one. Also possibly more efficient copy (same filesystem).
+		if f.copyBlockFromFolder(ctx, f.ID, block, state, f.mtimefs, buf) {
+			return true
+		}
+		if state.failed() != nil {
+			return false
+		}
 	}
 
 	for folderID, ffs := range otherFolderFilesystems {
@@ -1556,10 +1570,21 @@ func (f *sendReceiveFolder) pullBlock(ctx context.Context, state pullBlockState,
 		return
 	}
 
-	if !f.DisableSparseFiles && state.reused == 0 && state.block.IsEmpty() {
+	if state.block.IsEmpty() {
 		// There is no need to request a block of all zeroes. Pretend we
 		// requested it and handled it correctly.
-		state.pullDone(state.block)
+		if state.reused != 0 || f.DisableSparseFiles {
+			// We are reusing a file (contents apparently weren't all-zeroes
+			// previously), or sparse files are disabled, so we need to
+			// actually write the block.
+			zeroes := make([]byte, state.block.Size)
+			err = f.limitedWriteAt(ctx, fd, zeroes, state.block.Offset)
+		}
+		if err != nil {
+			state.fail(fmt.Errorf("save: %w", err))
+		} else {
+			state.pullDone(state.block)
+		}
 		out <- state.sharedPullerState
 		return
 	}
@@ -1605,11 +1630,10 @@ loop:
 		}
 
 		// Verify that the received block matches the desired hash, if not
-		// try pulling it from another device.
-		// For receive-only folders, the hash is not SHA256 as it's an
-		// encrypted hash token. In that case we can't verify the block
-		// integrity so we'll take it on trust. (The other side can and
-		// will verify.)
+		// try pulling it from another device. For receive-encrypted
+		// folders, the hash is not SHA256 as it's an encrypted hash token.
+		// In that case we can't verify the block integrity so we'll take it
+		// on trust. (The other side can and will verify.)
 		if f.Type != config.FolderTypeReceiveEncrypted {
 			lastError = f.verifyBuffer(buf, state.block)
 		}
@@ -1801,19 +1825,6 @@ loop:
 				lastFile = job.file
 			}
 
-			if !job.file.IsDeleted() && !job.file.IsInvalid() {
-				// Now that the file is finalized, grab possibly updated
-				// inode change time from disk into the local FileInfo. We
-				// use this change time to check for changes to xattrs etc
-				// on next scan.
-				if err := f.updateFileInfoChangeTime(&job.file); err != nil {
-					// This means on next scan the likely incorrect change time
-					// (resp. whatever caused the error) will cause this file to
-					// change. Log at info level to leave a trace if a user
-					// notices, but no need to warn
-					f.sl.Warn("Failed to update metadata at database commit", slogutil.FilePath(job.file.Name), slogutil.Error(err))
-				}
-			}
 			job.file.Sequence = 0
 
 			batch.Append(job.file)
@@ -2197,22 +2208,6 @@ func (f *sendReceiveFolder) withLimiter(ctx context.Context, fn func() error) er
 	}
 	defer f.writeLimiter.Give(1)
 	return fn()
-}
-
-// updateFileInfoChangeTime updates the inode change time in the FileInfo,
-// because that depends on the current, new, state of the file on disk.
-func (f *sendReceiveFolder) updateFileInfoChangeTime(file *protocol.FileInfo) error {
-	info, err := f.mtimefs.Lstat(file.Name)
-	if err != nil {
-		return err
-	}
-
-	if ct := info.InodeChangeTime(); !ct.IsZero() {
-		file.InodeChangeNs = ct.UnixNano()
-	} else {
-		file.InodeChangeNs = 0
-	}
-	return nil
 }
 
 // A []FileError is sent as part of an event and will be JSON serialized.
