@@ -390,7 +390,7 @@ loop:
 			if err != nil {
 				return nil, nil, err
 			}
-			if hasCurFile && file.BlocksEqual(curFile) {
+			if hasCurFile && curFile.Type == file.Type && file.BlocksEqual(curFile) {
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
 				// copy.
@@ -709,7 +709,7 @@ func (f *sendReceiveFolder) checkParent(file string, scanChan chan<- string) boo
 		return true
 	}
 	f.sl.Debug("Creating parent directory", slogutil.FilePath(file))
-	if err := f.mtimefs.MkdirAll(parent, 0o755); err != nil {
+	if err := f.mtimefs.MkdirAll(parent, fs.ModePerm); err != nil {
 		f.newPullError(file, fmt.Errorf("creating parent dir: %w", err))
 		return false
 	}
@@ -1353,6 +1353,12 @@ func (f *sendReceiveFolder) copierRoutine(ctx context.Context, in <-chan copyBlo
 			default:
 			}
 
+			if block.Size == 0 {
+				// Copying zero bytes is a no-op.
+				state.copyDone(block)
+				continue
+			}
+
 			if !f.DisableSparseFiles && state.reused == 0 && block.IsEmpty() {
 				// The block is a block of all zeroes, and we are not reusing
 				// a temp file, so there is no need to do anything with it.
@@ -1541,6 +1547,13 @@ func (f *sendReceiveFolder) pullerRoutine(ctx context.Context, in <-chan pullBlo
 		// themselves.
 
 		bytes := state.block.Size
+
+		if bytes == 0 {
+			// Pulling zero bytes is a no-op.
+			state.pullDone(state.block)
+			out <- state.sharedPullerState
+			continue
+		}
 
 		if err := requestLimiter.TakeWithContext(ctx, bytes); err != nil {
 			state.fail(err)

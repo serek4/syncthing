@@ -13,7 +13,6 @@ jobs:
     name: Create release tag
     if: github.repository_owner == 'serek4'
     runs-on: ubuntu-latest
-    environment: release
     steps:
       - uses: actions/checkout@v5
         with:

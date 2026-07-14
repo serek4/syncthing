@@ -674,7 +674,7 @@ func auditWriter(auditFile string) io.Writer {
 		} else {
 			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_APPEND
 		}
-		fd, err = os.OpenFile(auditFile, auditFlags, 0o600)
+		fd, err = os.OpenFile(auditFile, auditFlags, 0o666)
 		if err != nil {
 			slog.Error("Failed to open audit file", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
@@ -916,10 +916,14 @@ func (u upgradeCmd) Run() error {
 		case err != nil && !os.IsNotExist(err):
 			slog.Error("Failed to lock for upgrade", slogutil.Error(err))
 			os.Exit(1)
-		case locked:
-			err = upgradeViaRest()
-		default:
+		case locked || os.IsNotExist(err):
+			// We got the lock, or the config directory didn't exist, so we
+			// can do a direct upgrade
 			err = upgrade.To(release)
+		default:
+			// We didn't get the lock, because Syncthing was running, so
+			// upgrade via REST.
+			err = upgradeViaRest()
 		}
 	}
 	if err != nil {

@@ -111,10 +111,6 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo, opti
 			f.BlocksHash = nil
 		}
 
-		if f.Type == protocol.FileInfoTypeDirectory {
-			f.Size = 128 // synthetic directory size
-		}
-
 		// Insert the file.
 		//
 		// If it is a remote file, set remote_sequence otherwise leave it at
@@ -234,6 +230,13 @@ func (s *folderDB) DropAllFiles(device protocol.DeviceID) error {
 	}
 	defer tx.Rollback() //nolint:errcheck
 	txp := &txPreparedStmts{Tx: tx}
+
+	if _, err := tx.Exec(`
+		UPDATE indexids SET sequence = 0
+		WHERE device_idx = ?
+	`, deviceIdx); err != nil {
+		return wrap(err)
+	}
 
 	// Drop all the file entries
 

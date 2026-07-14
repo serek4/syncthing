@@ -4,6 +4,11 @@ on:
   workflow_call:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
 env:
   # The go version to use for builds. We set check-latest to true when
   # installing, so we get the latest patch version that matches the
@@ -130,7 +135,6 @@ jobs:
   publish-release-files:
     name: Publish release files
     if: github.repository_owner == 'serek4' && github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/v')
-    environment: release
     permissions:
       contents: write
       id-token: write

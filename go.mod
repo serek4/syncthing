@@ -22,12 +22,12 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/maruel/panicparse/v2 v2.5.0
-	github.com/mattn/go-sqlite3 v1.14.44
+	github.com/mattn/go-sqlite3 v1.14.45
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.3
 	github.com/maxmind/geoipupdate/v6 v6.1.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.13.0
-	github.com/pierrec/lz4/v4 v4.1.26
+	github.com/pierrec/lz4/v4 v4.1.27
 	github.com/prometheus/client_golang v1.23.2
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
 	github.com/quic-go/quic-go v0.54.1
@@ -103,6 +103,3 @@ require (
 
 // https://github.com/gobwas/glob/pull/55
 replace github.com/gobwas/glob v0.2.3 => github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b
-
-// https://github.com/mattn/go-sqlite3/pull/1338
-replace github.com/mattn/go-sqlite3 v1.14.44 => github.com/calmh/go-sqlite3 v1.14.35-0.20260509063420-822b4765116d
