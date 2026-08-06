@@ -1854,7 +1854,8 @@ func (f *sendReceiveFolder) fsyncDirs(changedDirs map[string]struct{}) {
 	sem := make(chan struct{}, f.Copiers)
 	for dir := range changedDirs {
 		sem <- struct{}{}
-		wg.Go(func() {
+		wg.Add(1)
+		go func() {
 			defer func() { <-sem }()
 			fd, err := f.mtimefs.Open(dir)
 			if err != nil {
@@ -1865,7 +1866,8 @@ func (f *sendReceiveFolder) fsyncDirs(changedDirs map[string]struct{}) {
 				f.sl.Debug("Fsync failed", slogutil.FilePath(dir), slogutil.Error(err))
 			}
 			fd.Close()
-		})
+			wg.Done()
+		}()
 	}
 	wg.Wait()
 }
