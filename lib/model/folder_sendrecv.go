@@ -15,6 +15,7 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -143,8 +144,13 @@ func newSendReceiveFolder(model *model, ignores *ignore.Matcher, cfg config.Fold
 	f.puller = f
 
 	if f.Copiers == 0 {
+		// "Copiers" is effectively the concurrency level for a number of
+		// different processes in the folder runner, not only the specific
+		// copy step. TODO: Rename this config option at some point.
 		f.Copiers = defaultCopiers
 	}
+	// Cap the copiers at 2*NumCPU, so that we have a known upper bound.
+	f.Copiers = min(f.Copiers, 2*runtime.NumCPU())
 
 	// If the configured max amount of pending data is zero, we use the
 	// default. If it's configured to something non-zero but less than the
@@ -168,7 +174,6 @@ func (f *sendReceiveFolder) pull(ctx context.Context) (bool, error) {
 	go f.pullScannerRoutine(ctx, scanChan)
 	defer func() {
 		close(scanChan)
-		f.setState(FolderIdle)
 	}()
 
 	metricFolderPulls.WithLabelValues(f.ID).Inc()
@@ -244,10 +249,10 @@ func (f *sendReceiveFolder) pullerIteration(ctx context.Context, scanChan chan<-
 	f.tempPullErrors = make(map[string]string)
 	f.errorsMut.Unlock()
 
-	pullChan := make(chan pullBlockState)
-	copyChan := make(chan copyBlocksState)
-	finisherChan := make(chan *sharedPullerState)
-	dbUpdateChan := make(chan dbUpdateJob)
+	pullChan := make(chan pullBlockState, f.Copiers)
+	copyChan := make(chan copyBlocksState, f.Copiers)
+	finisherChan := make(chan *sharedPullerState, f.Copiers)
+	dbUpdateChan := make(chan dbUpdateJob, f.Copiers)
 
 	var pullWg sync.WaitGroup
 	var copyWg sync.WaitGroup
@@ -280,12 +285,14 @@ func (f *sendReceiveFolder) pullerIteration(ctx context.Context, scanChan chan<-
 		pullWg.Done()
 	}()
 
-	doneWg.Add(1)
-	// finisherRoutine finishes when finisherChan is closed
-	go func() {
-		f.finisherRoutine(ctx, finisherChan, dbUpdateChan, scanChan)
-		doneWg.Done()
-	}()
+	for range f.Copiers {
+		doneWg.Add(1)
+		// finisherRoutine finishes when finisherChan is closed
+		go func() {
+			f.finisherRoutine(ctx, finisherChan, dbUpdateChan, scanChan)
+			doneWg.Done()
+		}()
+	}
 
 	fileDeletions, dirDeletions, err := f.processNeeded(ctx, dbUpdateChan, copyChan, scanChan)
 
@@ -1442,15 +1449,15 @@ func (f *sendReceiveFolder) copyBlock(ctx context.Context, block protocol.BlockI
 // Returns true when the block was successfully copied.
 // The passed buffer must be large enough to accommodate the block.
 func (f *sendReceiveFolder) copyBlockFromFolder(ctx context.Context, folderID string, block protocol.BlockInfo, state copyBlocksState, ffs fs.Filesystem, buf []byte) bool {
-	for e, err := range itererr.Zip(f.model.sdb.AllLocalBlocksWithHash(folderID, block.Hash)) {
-		if err != nil {
-			// We just ignore this and continue pulling instead (though
-			// there's a good chance that will fail too, if the DB is
-			// unhealthy).
-			f.sl.DebugContext(ctx, "Failed to get block information from database", "blockHash", block.Hash, slogutil.FilePath(state.file.Name), slogutil.Error(err))
-			return false
-		}
+	candidates, err := itererr.Collect(f.model.sdb.AllLocalBlocksWithHash(folderID, block.Hash))
+	if err != nil {
+		// We just ignore this and continue pulling instead (though there's
+		// a good chance that will fail too, if the DB is unhealthy).
+		f.sl.DebugContext(ctx, "Failed to get block information from database", "blockHash", block.Hash, slogutil.FilePath(state.file.Name), slogutil.Error(err))
+		return false
+	}
 
+	for _, e := range candidates {
 		if !f.copyBlockFromFile(ctx, e.FileName, e.Offset, state, ffs, block, buf) {
 			if state.failed() != nil {
 				return false
@@ -1785,21 +1792,10 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) in
 	tick := time.NewTicker(maxBatchTime)
 	defer tick.Stop()
 	batch := NewFileInfoBatch(func(files []protocol.FileInfo) error {
-		// sync directories
-		for dir := range changedDirs {
-			delete(changedDirs, dir)
-			if !f.DisableFsync {
-				fd, err := f.mtimefs.Open(dir)
-				if err != nil {
-					f.sl.Debug("Fsync failed", slogutil.FilePath(dir), slogutil.Error(err))
-					continue
-				}
-				if err := fd.Sync(); err != nil {
-					f.sl.Debug("Fsync failed", slogutil.FilePath(dir), slogutil.Error(err))
-				}
-				fd.Close()
-			}
+		if !f.DisableFsync {
+			f.fsyncDirs(changedDirs)
 		}
+		clear(changedDirs)
 
 		// All updates to file/folder objects that originated remotely
 		// (across the network) use this call to updateLocals
@@ -1851,6 +1847,27 @@ loop:
 
 	batch.Flush()
 	return changed
+}
+
+func (f *sendReceiveFolder) fsyncDirs(changedDirs map[string]struct{}) {
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, f.Copiers)
+	for dir := range changedDirs {
+		sem <- struct{}{}
+		wg.Go(func() {
+			defer func() { <-sem }()
+			fd, err := f.mtimefs.Open(dir)
+			if err != nil {
+				f.sl.Debug("Fsync failed", slogutil.FilePath(dir), slogutil.Error(err))
+				return
+			}
+			if err := fd.Sync(); err != nil {
+				f.sl.Debug("Fsync failed", slogutil.FilePath(dir), slogutil.Error(err))
+			}
+			fd.Close()
+		})
+	}
+	wg.Wait()
 }
 
 // pullScannerRoutine aggregates paths to be scanned after pulling. The scan is
