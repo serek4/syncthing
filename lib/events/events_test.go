@@ -127,7 +127,7 @@ func TestBufferOverflow(t *testing.T) {
 
 	t0 := time.Now()
 	const nEvents = BufferSize * 2
-	for i := 0; i < nEvents; i++ {
+	for range nEvents {
 		l.Log(DeviceConnected, "foo")
 	}
 	if d := time.Since(t0); d > 15*time.Second {
@@ -237,7 +237,7 @@ func TestBufferedSub(t *testing.T) {
 	bs := NewBufferedSubscription(s, 10*BufferSize)
 
 	go func() {
-		for i := 0; i < 10*BufferSize; i++ {
+		for i := range 10 * BufferSize {
 			l.Log(DeviceConnected, fmt.Sprintf("event-%d", i))
 			if i%30 == 0 {
 				// Give the buffer routine time to pick up the events
@@ -379,7 +379,7 @@ func TestUnsubscribeContention(t *testing.T) {
 	stopListeners := make(chan struct{})
 	var listenerWg sync.WaitGroup
 	listenerWg.Add(listeners)
-	for i := 0; i < listeners; i++ {
+	for range listeners {
 		go func() {
 			defer listenerWg.Done()
 
@@ -404,7 +404,7 @@ func TestUnsubscribeContention(t *testing.T) {
 	defer close(stopSenders)
 	var senderWg sync.WaitGroup
 	senderWg.Add(senders)
-	for i := 0; i < senders; i++ {
+	for range senders {
 		go func() {
 			defer senderWg.Done()
 

@@ -4,7 +4,7 @@ go 1.23.0
 
 require (
 	github.com/AudriusButkevicius/recli v0.0.7
-	github.com/alecthomas/kong v1.12.1
+	github.com/alecthomas/kong v1.12.1 // pined
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/calmh/incontainer v1.0.0
 	github.com/calmh/xdr v1.2.0
@@ -12,28 +12,28 @@ require (
 	github.com/coreos/go-semver v0.3.1
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/getsentry/raven-go v0.2.0
-	github.com/go-ldap/ldap/v3 v3.4.12
+	github.com/go-ldap/ldap/v3 v3.4.12 // pined
 	github.com/gobwas/glob v0.2.3
-	github.com/gofrs/flock v0.12.1
+	github.com/gofrs/flock v0.12.1 // pined
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/jackpal/gateway v1.0.16
+	github.com/jackpal/gateway v1.0.16 // pined
 	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/maruel/panicparse/v2 v2.5.0
-	github.com/mattn/go-sqlite3 v1.14.48
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.3
+	github.com/mattn/go-sqlite3 v1.14.50
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.3 // pined
 	github.com/maxmind/geoipupdate/v6 v6.1.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.13.0
-	github.com/pierrec/lz4/v4 v4.1.27
-	github.com/prometheus/client_golang v1.23.2
+	github.com/pierrec/lz4/v4 v4.1.29
+	github.com/prometheus/client_golang v1.23.2 // pined
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
-	github.com/quic-go/quic-go v0.54.1
-	github.com/rabbitmq/amqp091-go v1.13.0
+	github.com/quic-go/quic-go v0.54.1 // pined
+	github.com/rabbitmq/amqp091-go v1.14.0
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9
-	github.com/shirou/gopsutil/v4 v4.25.9 // https://github.com/shirou/gopsutil/issues/1898
+	github.com/shirou/gopsutil/v4 v4.25.9 // https://github.com/shirou/gopsutil/issues/1898 // pined
 	github.com/syncthing/notify v0.0.0-20250528144937-c7027d4f7465
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d
 	github.com/thejerf/suture/v4 v4.0.6
@@ -41,16 +41,16 @@ require (
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	github.com/willabides/kongplete v0.4.0
 	github.com/wlynxg/anet v0.0.5
-	go.uber.org/automaxprocs v1.6.0
-	golang.org/x/crypto v0.41.0
-	golang.org/x/exp v0.0.0-20250811191247-51f88131bc50
-	golang.org/x/net v0.43.0
-	golang.org/x/sys v0.35.0
-	golang.org/x/text v0.28.0
-	golang.org/x/time v0.12.0
-	golang.org/x/tools v0.36.0
-	google.golang.org/protobuf v1.36.11
-	modernc.org/sqlite v1.39.0
+	go.uber.org/automaxprocs v1.6.0 // pined
+	golang.org/x/crypto v0.41.0 // pined
+	golang.org/x/exp v0.0.0-20250811191247-51f88131bc50 // pined
+	golang.org/x/net v0.43.0 // pined
+	golang.org/x/sys v0.35.0 // pined
+	golang.org/x/text v0.28.0 // pined
+	golang.org/x/time v0.12.0 // pined
+	golang.org/x/tools v0.36.0 // pined
+	google.golang.org/protobuf v1.36.12
+	modernc.org/sqlite v1.39.0 // pined
 	sigs.k8s.io/yaml v1.6.0
 )
 

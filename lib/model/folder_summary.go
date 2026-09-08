@@ -266,7 +266,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 		return
 
 	case events.StateChanged:
-		data := ev.Data.(map[string]interface{})
+		data := ev.Data.(map[string]any)
 		if data["to"].(string) != "idle" {
 			return
 		}
@@ -297,7 +297,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 		// This folder needs to be refreshed whenever we do the next
 		// refresh.
 
-		folder = ev.Data.(map[string]interface{})["folder"].(string)
+		folder = ev.Data.(map[string]any)["folder"].(string)
 	}
 
 	c.foldersMut.Lock()
