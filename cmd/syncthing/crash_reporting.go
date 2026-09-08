@@ -128,7 +128,7 @@ func uploadPanicLog(ctx context.Context, urlBase, file string) error {
 func filterLogLines(data []byte) []byte {
 	filtered := data[:0]
 	matched := false
-	for line := range bytes.SplitSeq(data, []byte("\n")) {
+	for _, line := range bytes.Split(data, []byte("\n")) {
 		switch {
 		case !matched && bytes.HasPrefix(line, []byte("Panic ")):
 			// This begins the panic trace, set the matched flag and append.

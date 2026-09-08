@@ -1446,7 +1446,7 @@ func (*service) getDeviceID(w http.ResponseWriter, r *http.Request) {
 func (*service) getLang(w http.ResponseWriter, r *http.Request) {
 	lang := r.Header.Get("Accept-Language")
 	weights := make(map[string]float64)
-	for l := range strings.SplitSeq(lang, ",") {
+	for _, l := range strings.Split(lang, ",") {
 		parts := strings.SplitN(l, ";", 2)
 		code := strings.ToLower(strings.TrimSpace(parts[0]))
 		weights[code] = 1.0
