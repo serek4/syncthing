@@ -1667,6 +1667,11 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 			// Don't have this folder, carry on.
 			continue
 		}
+		if !fcfg.SharedWith(introducerCfg.DeviceID) {
+			// The folder exists but is not shared with the introducer, so
+			// we don't trust them on the subject.
+			continue
+		}
 
 		folderChanged := false
 
