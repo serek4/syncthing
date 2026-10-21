@@ -700,7 +700,8 @@ func checkFilename(name string) error {
 func (c *rawConnection) handleRequest(req *Request) {
 	res, err := c.model.Request(req)
 	if err != nil {
-		if _, ok := errors.AsType[protocolError](err); ok {
+		var protErr *protocolError
+		if errors.As(err, &protErr) {
 			c.internalClose(err)
 			return
 		}
